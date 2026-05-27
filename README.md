@@ -69,8 +69,7 @@ This application is powered by Node.js (v16.19.1), Express.js (v.14.18.2), JavaS
 
 ## Live Application
 
-Event Connect
-[https://project-2-event-planner-3ca0203f2eb1.herokuapp.com]
+The original Heroku deployment has been retired. This MySQL-backed MVC application can be run locally by following the installation steps above with valid database and Ticketmaster API environment variables.
 
 ## Usage
 
@@ -113,7 +112,7 @@ Event Connect
 - **CRUD Operations**: Supports CRUD (Create, Read, Update, Delete) operations for managing events, user accounts, and messages.
 - **MVC Architecture**: Follows the MVC (Model-View-Controller) design pattern for a clear separation of concerns and maintainability.
 - **Environment Variable Protection**: Sensitive information such as API keys and database credentials are protected using environment variables.
-- **Heroku Deployment**: Deployed on Heroku with data, ensuring accessibility and availability for users.
+- **Deployment History**: Originally deployed with Heroku and a managed MySQL database; local setup now requires valid database and API credentials.
 - **Good-Quality Codebase**: Maintains high coding standards, including file structure, naming conventions, indentation, and comments.
 
 ## Credits
