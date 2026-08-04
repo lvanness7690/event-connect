@@ -1,28 +1,28 @@
-// config/connection.js
+const mongoose = require('mongoose');
 
-const Sequelize = require('sequelize'); // Import Sequelize
-require('dotenv').config();
+let connectionPromise;
 
-let sequelize;
+async function connectDatabase() {
+    if (mongoose.connection.readyState === 1) {
+        return mongoose.connection;
+    }
 
-// Check if running on Heroku with JAWSDB_URL set
-if (process.env.JAWSDB_URL) {
-    // Use the JAWSDB_URL for Sequelize
-    sequelize = new Sequelize(process.env.JAWSDB_URL, {
-        dialect: 'mysql',
-    });
-} else {
-    // Fallback to local database settings
-    sequelize = new Sequelize(
-        process.env.DB_NAME,       // Database name
-        process.env.DB_USER,       // User
-        process.env.DB_PASSWORD,   // Password
-        {
-            host: "localhost",     // Localhost for local development
-            dialect: 'mysql',      // Assuming MySQL
-            port: 3306,            // Default MySQL port
-        }
-    );
+    if (!process.env.MONGODB_URI) {
+        throw new Error('MONGODB_URI is required');
+    }
+
+    if (!connectionPromise) {
+        connectionPromise = mongoose.connect(process.env.MONGODB_URI, {
+            maxPoolSize: 5,
+            serverSelectionTimeoutMS: 10000,
+        }).catch((error) => {
+            connectionPromise = undefined;
+            throw error;
+        });
+    }
+
+    await connectionPromise;
+    return mongoose.connection;
 }
 
-module.exports = sequelize;
+module.exports = { connectDatabase, mongoose };

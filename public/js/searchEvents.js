@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
         event.preventDefault(); // Prevent the form from submitting the traditional way
         const city = searchInput.value; // Get the city from the input
 
-        // Fetch events from the Ticketmaster API
+        // Fetch normalized events from the server-side event provider
         fetch(`/api/search-events?city=${encodeURIComponent(city)}`)
             .then(response => response.json())
             .then(events => {
@@ -79,5 +79,4 @@ document.addEventListener('DOMContentLoaded', function() {
         return new Date(date).toLocaleDateString(undefined, options);
     }     
 });
-
 

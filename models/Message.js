@@ -1,39 +1,24 @@
-// models/Message.js
-const { Model, DataTypes } = require('sequelize');
-const sequelize = require('../config/connection');
+const { mongoose } = require('../config/connection');
 
-class Message extends Model {}
-
-Message.init({
-    // Message fields
+const messageSchema = new mongoose.Schema({
     content: {
-        type: DataTypes.TEXT,
-        allowNull: false
+        type: String,
+        required: true,
+        trim: true,
+        maxlength: 2000,
     },
-    // Foreign key to Event
     eventId: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        references: {
-            model: 'Event',
-            key: 'id'
-        }
+        type: String,
+        required: true,
+        ref: 'Event',
     },
-    // Foreign key to User (if you want to track who posted the message)
     userId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: 'User',
-            key: 'id'
-        }
-    }
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'User',
+    },
 }, {
-    sequelize,
-    modelName: 'Message',
-    timestamps: true, // If you want to track when messages were created/updated
-    freezeTableName: true,
-    underscored: true,
+    timestamps: true,
 });
 
-module.exports = Message;
+module.exports = mongoose.models.Message || mongoose.model('Message', messageSchema);

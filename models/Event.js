@@ -1,40 +1,30 @@
-const { DataTypes, Model } = require('sequelize');
-const sequelize = require('../config/connection');
+const { mongoose } = require('../config/connection');
 
-class Event extends Model {}
-
-Event.init({
-    id: {
-        type: DataTypes.STRING,
-        primaryKey: true,
+const eventSchema = new mongoose.Schema({
+    _id: {
+        type: String,
+        required: true,
     },
     name: {
-        type: DataTypes.STRING,
-        allowNull: false,
+        type: String,
+        required: true,
     },
     location: {
-        type: DataTypes.STRING,
-        allowNull: false,
+        type: String,
+        required: true,
     },
-    image: {
-        type: DataTypes.STRING,
-        allowNull: true,
-    },
-    description: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-    },
-    date: {
-        type: DataTypes.DATE,
-        allowNull: true,
-    },
-
-},{
-    sequelize,
-    modelName: 'Event',
-    timestamps: false,
-    freezeTableName: true,
-    underscored: true,
+    image: String,
+    description: String,
+    date: Date,
+    ticketUrl: String,
+    attendees: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+    }],
+}, {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
 });
 
-module.exports = Event;
+module.exports = mongoose.models.Event || mongoose.model('Event', eventSchema);

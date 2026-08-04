@@ -23,6 +23,10 @@
             <!-- Event Description -->
             <p class="event-description">{{event.description}}</p>
 
+            {{#if event.ticketUrl}}
+            <p class="my-4"><a href="{{event.ticketUrl}}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">View tickets and official details</a></p>
+            {{/if}}
+
             <!-- Attend Button -->
             <button id="attendButton" data-event-id="{{event.id}}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded block mx-auto my-4">Attend</button>
         </article>

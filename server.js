@@ -1,52 +1,64 @@
-const express = require("express");
+const express = require('express');
 const { engine } = require('express-handlebars');
 const session = require('express-session');
-const SequelizeStore = require('connect-session-sequelize')(session.Store); // Import connect-session-sequelize
+const { MongoStore } = require('connect-mongo');
 const path = require('path');
-const routes = require('./controllers'); // Importing aggregated routes
-const sequelize = require('./config/connection');
-require('dotenv').config(); // Load environment variables from .env file
+const routes = require('./controllers');
+const { connectDatabase } = require('./config/connection');
+require('dotenv').config();
 
 const PORT = process.env.PORT || 3001;
 const app = express();
 
-// Serve static files from the 'public' directory
-app.use(express.static(path.join(__dirname, 'public')));
+if (!process.env.MONGODB_URI) {
+    throw new Error('MONGODB_URI is required');
+}
+if (!process.env.SESSION_SECRET) {
+    throw new Error('SESSION_SECRET is required');
+}
 
-// Middleware for parsing JSON and urlencoded form data
+const initialization = connectDatabase();
+
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Setup Handlebars as the view engine
 app.engine('handlebars', engine());
 app.set('view engine', 'handlebars');
+app.set('trust proxy', 1);
 
-// Configure the session store to use Sequelize
-const sessionStore = new SequelizeStore({
-    db: sequelize,
-    checkExpirationInterval: 15 * 60 * 1000, // The interval at which to cleanup expired sessions in milliseconds
-    expiration: 24 * 60 * 60 * 1000  // The maximum age (in milliseconds) of a valid session
+app.use(async (_req, res, next) => {
+    try {
+        await initialization;
+        next();
+    } catch (error) {
+        console.error('Database initialization failed:', error);
+        res.status(500).send('Database initialization failed');
+    }
 });
 
-app.set('trust proxy', 1);
-// Setup session middleware
 app.use(session({
-    secret: process.env.SESSION_SECRET, // Use environment variable for the session secret
-    store: sessionStore, // Tell express-session to use SequelizeStore
-    resave: false, // Avoid resaving session if unmodified
-    saveUninitialized: false, // Don't save uninitialized sessions
-    cookie: { secure: process.env.NODE_ENV === "production" } // Use secure cookies in production
+    secret: process.env.SESSION_SECRET,
+    store: MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        collectionName: 'sessions',
+        ttl: 24 * 60 * 60,
+    }),
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000,
+    },
 }));
 
-// Sync the session store
-sessionStore.sync();
-
-// Use the aggregated routes from controllers
 app.use(routes);
 
-// Sync Sequelize models to the database, then start the server
-sequelize.sync({ force: false }).then(() => {
-    app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
+module.exports = app;
+
+if (require.main === module) {
+    initialization.then(() => {
+        app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
     });
-});
+}
