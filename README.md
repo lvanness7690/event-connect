@@ -1,9 +1,9 @@
 # Event Connect
 
-![Status](https://img.shields.io/badge/Status-Vercel%20migration-000000?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Live-16a34a?style=for-the-badge)
 ![Hosting](https://img.shields.io/badge/Hosting-Vercel-000000?style=for-the-badge)
 ![Stack](https://img.shields.io/badge/Stack-MVC-000000?style=for-the-badge)
-![Focus](https://img.shields.io/badge/Focus-Ticketmaster%20API-000000?style=for-the-badge)
+![Focus](https://img.shields.io/badge/Focus-Event%20Discovery-000000?style=for-the-badge)
 ![Type](https://img.shields.io/badge/Type-Events-000000?style=for-the-badge)
 
 Event discovery and community app with accounts, event search, and message boards.
@@ -23,16 +23,16 @@ Event discovery and community app with accounts, event search, and message board
 
 ## Overview
 
-A full-stack MVC application that combines Ticketmaster event search with user accounts and event-specific message-board functionality.
+A full-stack MVC application that combines live event search with user accounts and event-specific message-board functionality.
 
 ## Features
 
-- 🎟️ Ticketmaster event search
+- 🎟️ Live event search through StungEvents, with optional Ticketmaster support
 - 🏙️ City and date filtering
 - 👤 User registration and login
 - 💬 Event-specific message boards
 - 📱 Responsive Handlebars/Tailwind interface
-- 🗃️ MySQL and Sequelize data model
+- 🗃️ MongoDB persistence for users, saved events, messages, and sessions
 
 ## Tech Stack
 
@@ -40,34 +40,32 @@ A full-stack MVC application that combines Ticketmaster event search with user a
 - Node.js
 - Express
 - Handlebars
-- MySQL
-- Sequelize
+- MongoDB
+- Mongoose
 - Tailwind CSS
-- Ticketmaster API
+- StungEvents API
+- Ticketmaster Discovery API (optional)
 
 ## Links
 
 - Repository: [https://github.com/lvanness7690/event-connect](https://github.com/lvanness7690/event-connect)
-- Live application: The verified production Vercel URL will be added after deployment.
+- Live application: [https://event-connect-pi.vercel.app](https://event-connect-pi.vercel.app)
 
 ## Deployment
 
-The Express/Handlebars application is configured for Vercel's Node.js runtime. It requires an externally hosted MySQL-compatible database because Vercel Functions do not provide a persistent local database.
+The Express/Handlebars application is configured for Vercel's Node.js runtime and uses MongoDB Atlas for application data and persistent sessions.
 
 Required production environment variables:
 
-- `DATABASE_URL`: MySQL-compatible connection string
+- `MONGODB_URI`: MongoDB connection string
 - `SESSION_SECRET`: Secret used to sign application sessions
-- `TICKETMASTER_API_KEY`: Ticketmaster Discovery API key
-- `DB_SSL=true`: Enable TLS when required by the database provider
-
-The legacy `JAWSDB_URL` variable remains supported for backward compatibility.
+- `TICKETMASTER_API_KEY` (optional): when present, search uses Ticketmaster; otherwise the no-key StungEvents API is used
 
 ## Getting Started
 
 1. `npm install`
-2. `Create a MySQL database using db/schema.sql`
-3. `Create a .env file with DB credentials, SESSION_SECRET, and TICKETMASTER_API_KEY`
+2. `Create a MongoDB database`
+3. `Create a .env file with MONGODB_URI and SESSION_SECRET`
 4. `npm run build:css`
 5. `node server.js`
 
@@ -86,7 +84,6 @@ Run locally, create an account, search for events, and participate in event mess
 - `README.md`
 - `config`
 - `controllers`
-- `db`
 - `models`
 - `package-lock.json`
 - `package.json`

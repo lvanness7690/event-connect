@@ -1,37 +1,28 @@
-// config/connection.js
+const mongoose = require('mongoose');
 
-const Sequelize = require('sequelize'); // Import Sequelize
-require('dotenv').config();
+let connectionPromise;
 
-let sequelize;
-const databaseUrl = process.env.DATABASE_URL || process.env.JAWSDB_URL;
-const pool = {
-    max: 2,
-    min: 0,
-    acquire: 30000,
-    idle: 10000,
-};
+async function connectDatabase() {
+    if (mongoose.connection.readyState === 1) {
+        return mongoose.connection;
+    }
 
-if (databaseUrl) {
-    sequelize = new Sequelize(databaseUrl, {
-        dialect: 'mysql',
-        pool,
-        dialectOptions: process.env.DB_SSL === 'true'
-            ? { ssl: { require: true, rejectUnauthorized: false } }
-            : undefined,
-    });
-} else {
-    sequelize = new Sequelize(
-        process.env.DB_NAME,
-        process.env.DB_USER,
-        process.env.DB_PASSWORD,
-        {
-            host: process.env.DB_HOST || 'localhost',
-            dialect: 'mysql',
-            port: Number(process.env.DB_PORT || 3306),
-            pool,
-        }
-    );
+    if (!process.env.MONGODB_URI) {
+        throw new Error('MONGODB_URI is required');
+    }
+
+    if (!connectionPromise) {
+        connectionPromise = mongoose.connect(process.env.MONGODB_URI, {
+            maxPoolSize: 5,
+            serverSelectionTimeoutMS: 10000,
+        }).catch((error) => {
+            connectionPromise = undefined;
+            throw error;
+        });
+    }
+
+    await connectionPromise;
+    return mongoose.connection;
 }
 
-module.exports = sequelize;
+module.exports = { connectDatabase, mongoose };

@@ -1,197 +1,179 @@
-const express = require('express');
 const axios = require('axios');
-require('dotenv').config();
-const router = express.Router();
-const bcrypt = require('bcrypt');
-const session = require('express-session');
-const authenticate = require('../utils/auth');
-const { User, Event, Message, UserEvent } = require('../models'); // Import models
+const router = require('express').Router();
+const { User, Event, Message } = require('../models');
 
+function normalizeTicketmasterEvent(event) {
+    return {
+        id: event.id,
+        name: event.name,
+        dates: event.dates,
+        _embedded: event._embedded,
+        images: event.images || [],
+        info: event.info || event.pleaseNote || '',
+        url: event.url,
+    };
+}
 
-// Route for the registraion/home page
-router.get('/', (req, res) => {
-    const loggedIn = req.session.isLoggedIn || false; // Set loggedIn to true if user is logged in, otherwise false
-  if (loggedIn) {
-      // Redirect to events if user is logged in
-      res.redirect('/events');
-  } else {
-      // Render the home page for non-logged-in users and pass the loggedIn variable
-      res.render('home', { loggedIn });
-  }
-});
+function normalizeStungEvent(event) {
+    const slug = event.slug || event.id;
+    const start = event.start_utc || event.start || event.date;
+    return {
+        id: `stung--${slug}`,
+        name: event.title || event.name || 'Untitled event',
+        dates: { start: { localDate: start ? String(start).slice(0, 10) : null } },
+        _embedded: { venues: [{ name: event.venue_name || event.venue?.name || event.city || 'Venue to be announced' }] },
+        images: event.image_url || event.image ? [{ url: event.image_url || event.image }] : [],
+        info: event.description || event.summary || `${event.category || 'Live'} event in ${event.city || 'your area'}`,
+        url: event.ticket_url || event.url,
+    };
+}
 
-// Route for the events page
-router.get('/events', async (req, res) => {
-    
-    try {
-        // Render the events page
-        res.render('events', {loggedIn: req.session.isLoggedIn});
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Internal Server Error');
+async function searchEvents(city) {
+    if (process.env.TICKETMASTER_API_KEY) {
+        const response = await axios.get('https://app.ticketmaster.com/discovery/v2/events.json', {
+            params: { apikey: process.env.TICKETMASTER_API_KEY, city },
+            timeout: 10000,
+        });
+        return (response.data._embedded?.events || []).map(normalizeTicketmasterEvent);
     }
+
+    const response = await axios.get('https://api.stungevents.com/events', {
+        params: { city, limit: 24 },
+        timeout: 10000,
+    });
+    return (response.data.events || []).map(normalizeStungEvent);
+}
+
+async function getExternalEvent(eventId) {
+    if (eventId.startsWith('stung--')) {
+        const slug = eventId.slice('stung--'.length);
+        const response = await axios.get(`https://api.stungevents.com/events/${encodeURIComponent(slug)}`, { timeout: 10000 });
+        return normalizeStungEvent(response.data.event);
+    }
+
+    if (!process.env.TICKETMASTER_API_KEY) {
+        throw new Error('This Ticketmaster event is no longer available');
+    }
+
+    const response = await axios.get(`https://app.ticketmaster.com/discovery/v2/events/${encodeURIComponent(eventId)}.json`, {
+        params: { apikey: process.env.TICKETMASTER_API_KEY },
+        timeout: 10000,
+    });
+    return normalizeTicketmasterEvent(response.data);
+}
+
+router.get('/', (req, res) => {
+    if (req.session.isLoggedIn) {
+        return res.redirect('/events');
+    }
+    return res.render('home', { loggedIn: false });
 });
 
-//Renders the Login page
+router.get('/events', (_req, res) => res.render('events'));
+
 router.get('/login', (req, res) => {
-  // Check if the user is already logged in
-  if (req.session && req.session.user) {
-    // If logged in, redirect to the events page with a query parameter
-    res.redirect('/events');
-  } else {
-    // If not logged in, render the login page
-    res.render('login', {loggedIn: req.session.isLoggedIn}); // Assuming 'login' is the name of your login.handlebars template
-  }
+    if (req.session.isLoggedIn) {
+        return res.redirect('/events');
+    }
+    return res.render('login', { loggedIn: false });
 });
 
-//Login Request
 router.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-console.log(username);
     try {
-        // Find user by username or email
+        const identifier = String(req.body.username || '').trim();
         const user = await User.findOne({
-            where:{ username:username },
+            $or: [{ username: identifier }, { email: identifier.toLowerCase() }],
         });
 
-        if (!user) {
+        if (!user || !(await user.checkPassword(req.body.password || ''))) {
             return res.status(401).send('Invalid username/email or password');
         }
-console.log(user);
-        // Compare the provided password with the hashed password in the database
-        const passwordMatch = await user.checkPassword(password);
-console.log(passwordMatch);
-        if (!passwordMatch) {
-            return res.status(401).send('Invalid password');
-        }
 
-        // Set up session or generate token for authentication
-        req.session.save(() => {
-            req.session.userId = user.id; // Save userId in session
-            req.session.isLoggedIn = true;   // Mark the user as logged in
-            res.status(200).json(user);
-        });
-
+        req.session.userId = user._id.toString();
+        req.session.isLoggedIn = true;
+        return req.session.save(() => res.status(200).json({ id: user._id, username: user.username }));
     } catch (error) {
         console.error('Login error:', error);
-        res.status(500).send('Internal Server Error');
+        return res.status(500).send('Internal Server Error');
     }
 });
 
-//Logout Request
 router.post('/logout', (req, res) => {
-    // Destroy the session
-    req.session.destroy(err => {
-      if (err) {
-        console.error('Error destroying session:', err);
-        return res.redirect('/'); // Redirect to home page or another page on error
-      }
-  
-      // Redirect the user after successfully destroying the session
-      res.redirect('/login'); // Redirect to the login page
+    req.session.destroy((error) => {
+        if (error) {
+            console.error('Error destroying session:', error);
+            return res.redirect('/');
+        }
+        return res.redirect('/login');
     });
-  });
+});
 
-// Route for searching events through the Ticketmaster API
 router.get('/api/search-events', async (req, res) => {
     try {
-        const city = req.query.city; // Get city from the query parameter
-        const apiKey = process.env.TICKETMASTER_API_KEY;
-        const url = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${apiKey}&city=${encodeURIComponent(city)}`;
-        const response = await axios.get(url);
-        const events = response.data._embedded ? response.data._embedded.events : [];
-        res.json(events); // Send back the events data as JSON
+        const city = String(req.query.city || '').trim();
+        if (!city) {
+            return res.status(400).json({ error: 'City is required' });
+        }
+        return res.json(await searchEvents(city));
     } catch (error) {
-        console.error('Error fetching events:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        console.error('Error fetching events:', error.message);
+        return res.status(502).json({ error: 'The event provider is temporarily unavailable' });
     }
 });
 
-// Route for individual event details
 router.get('/event/:eventId', async (req, res) => {
-  try {
-      const eventId = req.params.eventId;
-      const apiKey = process.env.TICKETMASTER_API_KEY;
-      const url = `https://app.ticketmaster.com/discovery/v2/events/${eventId}.json?apikey=${apiKey}`;
-      const response = await axios.get(url);
-      const eventData = response.data;
-
-    // Check if the event already exists in the Event model
-    const existingEvent = await Event.findOne({
-        where: { id: eventId}, // Adjust the condition based on your model
-        include: [{
-            model: User,
-            as: 'users',
-          }],
-      });
-  
-      if (existingEvent) {
-        const messagesData = await Message.findAll({
-            where: { eventId: eventId },
-            include: [{
-                model: User,
-                attributes: ['username'], // Include only the necessary attributes from User model
-              }],
-          });
-
-        // Add this before the serialization
-        console.log('Messages data before serialization:', messagesData);
-
-        // Serialize messages by extracting relevant properties
-        const serializedMessages = messagesData.map(message => ({
-            content: message.content,
-            createdAt: message.createdAt,
-            username: message.user ? message.user.username : null,
-            // Add other properties as needed
-        }));
-
-        console.log('Messages:', serializedMessages);
-        // If the event exists, render the event details using your EJS template
-        res.render('event', { event: existingEvent.toJSON(), messages: serializedMessages});
-      } else {
-        // If the event doesn't exist, create a new entry in the Event model
-        const newEvent = await Event.create({
-          id: eventId,
-          name: eventData.name,
-          date: eventData.dates.start.localDate,
-          location: eventData._embedded?.venues[0]?.name,
-          image: eventData.images[0]?.url,
-          description: eventData.info,
-        });
-      
-        // Render the event details using your EJS template
-        res.render('event', { event: newEvent.toJSON(), loggedIn: req.session.isLoggedIn });
-      }
-  } catch (error) {
-      console.error('Error fetching event details:', error);
-      res.status(500).send('Internal Server Error');
-  }
-});
-
-
-
-// Route for the user's dashboard page
-router.get('/dashboard', async (req, res) => {
-   
     try {
-        if (!req.session.userId) {
-            // Redirect to home page if user is not logged in
-            res.redirect('/');
-            
-            return;
+        const eventId = req.params.eventId;
+        let event = await Event.findById(eventId).populate('attendees', 'username');
+
+        if (!event) {
+            const external = await getExternalEvent(eventId);
+            event = await Event.create({
+                _id: eventId,
+                name: external.name,
+                date: external.dates?.start?.localDate,
+                location: external._embedded?.venues?.[0]?.name || 'Venue to be announced',
+                image: external.images?.[0]?.url,
+                description: external.info,
+                ticketUrl: external.url,
+            });
         }
 
-        // Fetch all events associated with the user
-        const userEvents = await UserEvent.findAll({
-            where: { userId: req.session.userId },
-            include: [Event] // Include Event data in the query
+        const populatedEvent = await Event.findById(eventId).populate('attendees', 'username').lean();
+        const messages = await Message.find({ eventId }).sort({ createdAt: 1 }).populate('userId', 'username').lean();
+        return res.render('event', {
+            event: {
+                ...populatedEvent,
+                id: populatedEvent._id,
+                users: populatedEvent.attendees,
+            },
+            messages: messages.map((message) => ({
+                content: message.content,
+                createdAt: message.createdAt,
+                username: message.userId?.username || 'Event Connect user',
+            })),
+            loggedIn: req.session.isLoggedIn,
         });
+    } catch (error) {
+        console.error('Error fetching event details:', error.message);
+        return res.status(500).send('Unable to load this event');
+    }
+});
 
-        const events = userEvents.map(ue => ue.Event.get({ plain: true }));
-        res.render('dashboard', { events, loggedIn: req.session.isLoggedIn}); // Render the dashboard page with user's events
+router.get('/dashboard', async (req, res) => {
+    if (!req.session.userId) {
+        return res.redirect('/');
+    }
+
+    try {
+        const events = await Event.find({ attendees: req.session.userId }).lean();
+        return res.render('dashboard', {
+            events: events.map((event) => ({ ...event, id: event._id })),
+            loggedIn: true,
+        });
     } catch (error) {
         console.error('Error loading dashboard:', error);
-        res.status(500).send('Internal Server Error');
+        return res.status(500).send('Internal Server Error');
     }
 });
 
