@@ -28,6 +28,21 @@ const sessionStore = new SequelizeStore({
     expiration: 24 * 60 * 60 * 1000  // The maximum age (in milliseconds) of a valid session
 });
 
+const initialization = Promise.all([
+    sessionStore.sync(),
+    sequelize.sync({ force: false }),
+]);
+
+app.use(async (_req, res, next) => {
+    try {
+        await initialization;
+        next();
+    } catch (error) {
+        console.error('Database initialization failed:', error);
+        res.status(500).send('Database initialization failed');
+    }
+});
+
 app.set('trust proxy', 1);
 // Setup session middleware
 app.use(session({
@@ -38,15 +53,15 @@ app.use(session({
     cookie: { secure: process.env.NODE_ENV === "production" } // Use secure cookies in production
 }));
 
-// Sync the session store
-sessionStore.sync();
-
 // Use the aggregated routes from controllers
 app.use(routes);
 
-// Sync Sequelize models to the database, then start the server
-sequelize.sync({ force: false }).then(() => {
+module.exports = app;
+
+if (require.main === module) {
+  initialization.then(() => {
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
     });
-});
+  });
+}

@@ -1,6 +1,7 @@
 # Event Connect
 
-![Status](https://img.shields.io/badge/Status-Local%20database%20app-000000?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Vercel%20migration-000000?style=for-the-badge)
+![Hosting](https://img.shields.io/badge/Hosting-Vercel-000000?style=for-the-badge)
 ![Stack](https://img.shields.io/badge/Stack-MVC-000000?style=for-the-badge)
 ![Focus](https://img.shields.io/badge/Focus-Ticketmaster%20API-000000?style=for-the-badge)
 ![Type](https://img.shields.io/badge/Type-Events-000000?style=for-the-badge)
@@ -13,6 +14,7 @@ Event discovery and community app with accounts, event search, and message board
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Links](#links)
+- [Deployment](#deployment)
 - [Getting Started](#getting-started)
 - [Usage](#usage)
 - [Project Structure](#project-structure)
@@ -46,7 +48,20 @@ A full-stack MVC application that combines Ticketmaster event search with user a
 ## Links
 
 - Repository: [https://github.com/lvanness7690/event-connect](https://github.com/lvanness7690/event-connect)
-- Live application: Not currently deployed. This repository is intended to run locally or serve as a code sample.
+- Live application: The verified production Vercel URL will be added after deployment.
+
+## Deployment
+
+The Express/Handlebars application is configured for Vercel's Node.js runtime. It requires an externally hosted MySQL-compatible database because Vercel Functions do not provide a persistent local database.
+
+Required production environment variables:
+
+- `DATABASE_URL`: MySQL-compatible connection string
+- `SESSION_SECRET`: Secret used to sign application sessions
+- `TICKETMASTER_API_KEY`: Ticketmaster Discovery API key
+- `DB_SSL=true`: Enable TLS when required by the database provider
+
+The legacy `JAWSDB_URL` variable remains supported for backward compatibility.
 
 ## Getting Started
 

@@ -4,23 +4,32 @@ const Sequelize = require('sequelize'); // Import Sequelize
 require('dotenv').config();
 
 let sequelize;
+const databaseUrl = process.env.DATABASE_URL || process.env.JAWSDB_URL;
+const pool = {
+    max: 2,
+    min: 0,
+    acquire: 30000,
+    idle: 10000,
+};
 
-// Check if running on Heroku with JAWSDB_URL set
-if (process.env.JAWSDB_URL) {
-    // Use the JAWSDB_URL for Sequelize
-    sequelize = new Sequelize(process.env.JAWSDB_URL, {
+if (databaseUrl) {
+    sequelize = new Sequelize(databaseUrl, {
         dialect: 'mysql',
+        pool,
+        dialectOptions: process.env.DB_SSL === 'true'
+            ? { ssl: { require: true, rejectUnauthorized: false } }
+            : undefined,
     });
 } else {
-    // Fallback to local database settings
     sequelize = new Sequelize(
-        process.env.DB_NAME,       // Database name
-        process.env.DB_USER,       // User
-        process.env.DB_PASSWORD,   // Password
+        process.env.DB_NAME,
+        process.env.DB_USER,
+        process.env.DB_PASSWORD,
         {
-            host: "localhost",     // Localhost for local development
-            dialect: 'mysql',      // Assuming MySQL
-            port: 3306,            // Default MySQL port
+            host: process.env.DB_HOST || 'localhost',
+            dialect: 'mysql',
+            port: Number(process.env.DB_PORT || 3306),
+            pool,
         }
     );
 }

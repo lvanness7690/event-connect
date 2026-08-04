@@ -1,4 +1,5 @@
 const express = require('express');
+const router = express.Router();
 
 // Dummy function to simulate database query
 // Replace this with your actual database query logic
@@ -7,7 +8,7 @@ async function getUsernameByUserId(userId) {
     return new Promise((resolve) => setTimeout(() => resolve(`Username${userId}`), 100));
 }
 
-app.get('/getUsername', async (req, res) => {
+router.get('/getUsername', async (req, res) => {
     const userId = req.query.userId; // Assuming userId is passed as a query parameter
     if (!userId) {
         return res.status(400).send('UserId is required');
@@ -21,6 +22,4 @@ app.get('/getUsername', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+module.exports = router;
